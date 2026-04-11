@@ -29,7 +29,6 @@ memory-server/
 │   └── qdrant/          # Qdrant 資料（git ignored）
 ├── .env.example
 ├── docker-compose.yml
-├── claude_mcp_config.json   # 各平台 MCP 設定範例
 └── README.md
 ```
 
