@@ -253,6 +253,19 @@ cd mcp-server && uv sync
 
 ## Maintenance
 
+### 執行測試
+
+需先啟動 Qdrant：
+
+```bash
+docker compose up qdrant -d
+cd mcp-server
+uv sync --extra dev
+QDRANT_URL=http://localhost:6333 uv run python -m pytest tests/ -v
+```
+
+CI（GitHub Actions）會在每次 push / PR 自動執行。
+
 ### 更新套件
 
 ```bash
@@ -261,17 +274,7 @@ uv tree --outdated      # 查看有新版的套件
 uv sync --upgrade       # 升級全部並更新 uv.lock
 ```
 
-升級後跑一次快速測試：
-
-```bash
-QDRANT_URL=http://localhost:6333 uv run python -c "
-import db; db.init_db()
-m = db.save_memory('test', 'general', [])
-assert db.get_memory(m.id)
-db.delete_memory(m.id)
-print('OK')
-"
-```
+Dependabot 每週自動開 PR 更新套件（Python、Docker image、GitHub Actions），合併前 CI 會跑測試驗證。
 
 ### 更新 Python 版本
 

@@ -7,7 +7,7 @@ from qdrant_client import QdrantClient, models
 from models import Memory, MemoryType
 
 QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
-COLLECTION = "memories"
+COLLECTION = os.getenv("QDRANT_COLLECTION", "memories")
 EMBEDDING_MODEL = "BAAI/bge-large-en-v1.5"
 VECTOR_SIZE = 1024
 
