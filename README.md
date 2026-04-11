@@ -1,13 +1,13 @@
 # MCP Memory Server
 
-跨 Claude 客戶端的持久記憶 MCP Server。讓 Claude Code、Claude Chat、Claude Cowork 共用同一份記憶，支援語意搜尋。
+跨 AI 客戶端的持久記憶 MCP Server。讓各種 AI agent 共用同一份記憶，支援語意搜尋。
 
 ## 架構
 
 ```
-Claude Code ────── stdio ──────┐
-Claude Chat ─── HTTP + API key ─┼──► FastMCP Server ──► Qdrant
-Claude Cowork ── HTTP + API key ┘                    (語意向量搜尋)
+Local Agent  ────── stdio ───────┐
+Remote Agent ─── HTTP + API key ─┼──► FastMCP Server ──► Qdrant
+Remote Agent ─── HTTP + API key ─┘                    (語意向量搜尋)
 ```
 
 - **Embedding：** `BAAI/bge-small-en-v1.5`（fastembed，首次啟動自動下載 ~130MB）
@@ -37,8 +37,6 @@ memory-server/
 
 ## MCP Tools
 
-Claude 透過以下工具操作記憶：
-
 | Tool | 參數 | 說明 |
 |---|---|---|
 | `save_memory` | `content, type, tags[]` | 儲存一筆記憶 |
@@ -61,9 +59,9 @@ Claude 透過以下工具操作記憶：
 
 ---
 
-## 情境 A：Claude Code（本機 stdio）
+## 情境 A：Local（stdio）
 
-Claude Code 直接透過 stdio 啟動 MCP server，**不需要** memory-server 跑在 Docker 裡，但 **Qdrant 需要跑著**。
+AI 工具直接透過 stdio 啟動 MCP server，**不需要** memory-server 跑在 Docker 裡，但 **Qdrant 需要跑著**。
 
 ### 1. 啟動 Qdrant
 
@@ -78,9 +76,11 @@ cd mcp-server
 uv sync
 ```
 
-### 3. 設定 Claude Code MCP
+### 3. 設定各 AI 工具
 
-開啟 Claude Code 設定 → **Edit Config**，在 `mcpServers` 區塊加入 memory server。完整 config 結構如下（`preferences` 內容依個人設定而異）：
+#### Claude Desktop App
+
+開啟設定 → **Edit Config**，在 `mcpServers` 區塊加入（`preferences` 內容依個人設定而異）：
 
 **Windows native：**
 ```json
@@ -96,7 +96,7 @@ uv sync
 }
 ```
 
-**WSL / macOS：**（`<PROJECT_ROOT>` 換成實際路徑，使用正斜線）
+**WSL / macOS：**（`<PROJECT_ROOT>` 換成實際路徑）
 ```json
 {
   "preferences": { "...": "..." },
@@ -110,19 +110,9 @@ uv sync
 }
 ```
 
-存檔後 Claude Code 自動重載。首次會下載 fastembed 模型（~130MB），之後 cache 在 `~/.cache/fastembed`。
+存檔後自動重載。首次下載 fastembed 模型（~130MB），之後 cache 在 `~/.cache/fastembed`。
 
----
-
-## 其他 AI 工具（本機 stdio）
-
-所有工具都需要先啟動 Qdrant：
-
-```bash
-docker compose up qdrant -d
-```
-
-### Cursor
+#### Cursor
 
 編輯 `~/.cursor/mcp.json`（全域）或 `.cursor/mcp.json`（專案）：
 
@@ -138,7 +128,7 @@ docker compose up qdrant -d
 }
 ```
 
-### VS Code（GitHub Copilot Agent mode）
+#### VS Code（GitHub Copilot Agent mode）
 
 編輯 `.vscode/mcp.json`（專案）：
 
@@ -157,7 +147,7 @@ docker compose up qdrant -d
 
 > 注意：VS Code MCP 只在 **GitHub Copilot Agent mode** 下有效，Ask / Edit mode 看不到 tools。
 
-### OpenAI Codex CLI
+#### OpenAI Codex CLI
 
 編輯 `~/.codex/config.toml`（全域）或 `.codex/config.toml`（專案）：
 
@@ -174,9 +164,9 @@ MCP_TRANSPORT = "stdio"
 
 ---
 
-## 情境 B：Claude Chat / Cowork（遠端 HTTP）
+## 情境 B：Remote（HTTP）
 
-需要將 server 暴露到網路上。
+需要將 server 暴露到網路上，讓遠端 AI 工具連線。
 
 ### 1. 建立 `.env`
 
@@ -203,9 +193,9 @@ cloudflared tunnel --url http://localhost:8000
 
 **直接 expose port：** 確保防火牆/路由器開放 port 8000。
 
-### 4. 設定 Claude Chat / Cowork
+### 4. 設定 MCP
 
-在 MCP 設定介面填入：
+在各工具的 MCP 設定填入：
 - **URL：** `https://<YOUR_HOST>/mcp`
 - **Header：** `Authorization: Bearer <YOUR_MCP_API_KEY>`
 
@@ -215,18 +205,18 @@ cloudflared tunnel --url http://localhost:8000
 
 MCP server 只提供工具，**AI 不會自動存取記憶**，除非有明確指示。
 
-### 方法 A：手動叫它記（隨時可用）
+### 方法 A：手動觸發（隨時可用）
 
 在對話中直接要求：
 ```
 請把剛才這件事存到 memory
 幫我搜尋 memory 裡關於 X 的內容
-列出所有 memory
+列出所有 memory types
 ```
 
-### 方法 B：CLAUDE.md 自動化（推薦）
+### 方法 B：透過 instruction 檔自動觸發（推薦）
 
-在專案根目錄建立 `CLAUDE.md`，加入以下指令讓 Claude 自動觸發：
+各工具有各自的 instruction 檔，將以下內容加入對應檔案，AI 就會自動在適當時機存取記憶：
 
 ```markdown
 ## Memory
@@ -237,12 +227,22 @@ MCP server 只提供工具，**AI 不會自動存取記憶**，除非有明確�
 - 記憶類型：user（使用者資訊）、feedback（偏好與糾正）、project（專案脈絡）、reference（外部資源）、general（其他）
 ```
 
+| 工具 | Instruction 檔位置 | 範圍 |
+|---|---|---|
+| Claude Code | `~/.claude/CLAUDE.md` | 全域 |
+| Claude Code | `CLAUDE.md`（專案根目錄） | 專案 |
+| Cursor | `~/.cursor/rules/memory.md` | 全域 |
+| Cursor | `.cursor/rules/memory.md` | 專案 |
+| VS Code Copilot | `.github/copilot-instructions.md` | 專案 |
+| OpenAI Codex CLI | `~/.codex/instructions.md` | 全域 |
+| OpenAI Codex CLI | `AGENTS.md`（專案根目錄） | 專案 |
+
 ### 確認記憶有存進去
 
-**方法 1：Qdrant dashboard**
+**Qdrant dashboard：**
 開啟 `http://localhost:6333/dashboard`，點選 `memories` collection 查看所有資料。
 
-**方法 2：直接問 AI**
+**直接問 AI：**
 ```
 請用 search_memories 搜尋所有記憶
 請用 list_memory_types 看目前有哪些類型
@@ -255,7 +255,7 @@ MCP server 只提供工具，**AI 不會自動存取記憶**，除非有明確�
 | 變數 | 預設值 | 說明 |
 |---|---|---|
 | `QDRANT_URL` | `http://localhost:6333` | Qdrant 連線位址 |
-| `MCP_TRANSPORT` | `stdio` | `stdio`（Claude Code）或 `http`（遠端） |
+| `MCP_TRANSPORT` | `stdio` | `stdio`（local）或 `http`（遠端） |
 | `MCP_API_KEY` | —（無驗證）| HTTP mode 的驗證 key |
 | `HOST` | `0.0.0.0` | HTTP mode 監聽 host |
 | `PORT` | `8000` | HTTP mode 監聽 port |
