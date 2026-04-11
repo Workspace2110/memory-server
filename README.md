@@ -38,7 +38,7 @@ memory-server/
 
 ### 前置需求
 
-- [uv](https://docs.astral.sh/uv/)
+- [uv](https://docs.astral.sh/uv/)（macOS：`brew install uv`）
 - Docker + Docker Compose（兩個平台都需要，Qdrant 跑在 Docker 裡）
 
 ### 1. 啟動 Qdrant（Windows / macOS 都需要）
@@ -184,6 +184,10 @@ docker compose up qdrant -d
 ### 更新 uv 本身
 
 ```bash
+# macOS（brew 安裝）
+brew upgrade uv
+
+# Windows WSL（非 brew）
 uv self update
 ```
 
