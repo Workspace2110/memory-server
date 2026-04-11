@@ -1,17 +1,19 @@
 # MCP Memory Server
 
-跨 AI 客戶端的持久記憶 MCP Server。讓各種 AI agent 共用同一份記憶，支援語意搜尋。
+跨 AI 工具的持久記憶 MCP Server，支援語意搜尋。讓 Claude Code、Cursor、VS Code Copilot、Codex CLI 等工具共用同一份記憶。
+
+---
 
 ## 架構
 
 ```
-Local Agent  ────── stdio ───────┐
-Remote Agent ─── HTTP + API key ─┼──► FastMCP Server ──► Qdrant
-Remote Agent ─── HTTP + API key ─┘                    (語意向量搜尋)
+Local agent  ────── stdio ──────┐
+Remote agent ─── HTTP + API key ─┼──► FastMCP Server ──► Qdrant (語意向量搜尋)
+Remote agent ─── HTTP + API key ─┘
 ```
 
-- **Embedding：** `BAAI/bge-small-en-v1.5`（fastembed，首次啟動自動下載 ~130MB）
-- **Storage：** Qdrant（Docker 容器，資料存在 `./data/qdrant/`）
+- **Embedding：** `BAAI/bge-small-en-v1.5`（via fastembed，首次啟動自動下載 ~130MB，cache 在 `~/.cache/fastembed`）
+- **Storage：** Qdrant（Docker，資料存在 `./data/qdrant/`，git ignored）
 
 ---
 
@@ -20,13 +22,12 @@ Remote Agent ─── HTTP + API key ─┘                    (語意向量搜
 ```
 memory-server/
 ├── mcp-server/
-│   ├── main.py          # FastMCP server（6 個 tools，支援 stdio / HTTP）
-│   ├── db.py            # Qdrant CRUD + 語意搜尋
-│   ├── models.py        # Memory model
+│   ├── main.py        # FastMCP server（6 tools，stdio / HTTP 切換）
+│   ├── db.py          # Qdrant CRUD + 語意搜尋
+│   ├── models.py      # Memory model
 │   ├── pyproject.toml
 │   └── Dockerfile
-├── data/
-│   └── qdrant/          # Qdrant 資料（git ignored）
+├── data/qdrant/       # Qdrant 資料（git ignored）
 ├── .env.example
 ├── docker-compose.yml
 └── README.md
@@ -34,68 +35,37 @@ memory-server/
 
 ---
 
-## MCP Tools
-
-| Tool | 參數 | 說明 |
-|---|---|---|
-| `save_memory` | `content, type, tags[]` | 儲存一筆記憶 |
-| `search_memories` | `query, type?, limit?` | 語意搜尋（自動 embed query） |
-| `get_memory` | `memory_id` | 用 ID 取得單筆 |
-| `update_memory` | `memory_id, content` | 更新內容（自動重新 embed） |
-| `delete_memory` | `memory_id` | 刪除 |
-| `list_memory_types` | — | 列出目前使用中的 type |
-
-**Memory types：** `user` / `feedback` / `project` / `reference` / `general`
-
----
-
 ## 前置需求
 
-| 工具 | macOS / WSL | Windows 原生 |
+| | macOS / WSL | Windows 原生 |
 |---|---|---|
-| uv | `brew install uv` | [官網安裝](https://docs.astral.sh/uv/) |
-| Docker Desktop | [官網下載](https://www.docker.com/products/docker-desktop/) | 同左 |
+| **uv** | `brew install uv` | [官網安裝](https://docs.astral.sh/uv/) |
+| **Docker Desktop** | [官網下載](https://www.docker.com/products/docker-desktop/) | 同左 |
 
 ---
 
-## 情境 A：Local（stdio）
+## Setup
 
-AI 工具直接透過 stdio 啟動 MCP server，**不需要** memory-server 跑在 Docker 裡，但 **Qdrant 需要跑著**。
+### 情境 A：本機（stdio）
 
-### 1. 啟動 Qdrant
+AI 工具透過 stdio 直接啟動 MCP server。Qdrant 跑在 Docker，**memory-server 本身不用跑在 Docker**。
+
+**步驟：**
 
 ```bash
+# 1. 啟動 Qdrant
 docker compose up qdrant -d
+
+# 2. 安裝依賴
+cd mcp-server && uv sync
 ```
 
-### 2. 安裝依賴
+然後依照使用的工具設定 MCP：
 
-```bash
-cd mcp-server
-uv sync
-```
+#### Claude Code（Desktop App）
 
-### 3. 設定各 AI 工具
+設定 → **Edit Config**，在 `mcpServers` 加入：
 
-#### Claude Desktop App
-
-開啟設定 → **Edit Config**，在 `mcpServers` 區塊加入（`preferences` 內容依個人設定而異）：
-
-**Windows native：**
-```json
-{
-  "preferences": { "...": "..." },
-  "mcpServers": {
-    "memory": {
-      "command": "uv",
-      "args": ["--directory", "D:\\Projects\\tools\\memory-server\\mcp-server", "run", "python", "main.py"],
-      "env": { "QDRANT_URL": "http://localhost:6333", "MCP_TRANSPORT": "stdio" }
-    }
-  }
-}
-```
-
-**WSL / macOS：**（`<PROJECT_ROOT>` 換成實際路徑）
 ```json
 {
   "preferences": { "...": "..." },
@@ -109,11 +79,11 @@ uv sync
 }
 ```
 
-存檔後自動重載。首次下載 fastembed 模型（~130MB），之後 cache 在 `~/.cache/fastembed`。
+> Windows native 路徑用反斜線，例如 `D:\\Projects\\tools\\memory-server\\mcp-server`
 
 #### Cursor
 
-編輯 `~/.cursor/mcp.json`（全域）或 `.cursor/mcp.json`（專案）：
+`~/.cursor/mcp.json`（全域）或 `.cursor/mcp.json`（專案）：
 
 ```json
 {
@@ -129,7 +99,7 @@ uv sync
 
 #### VS Code（GitHub Copilot Agent mode）
 
-編輯 `.vscode/mcp.json`（專案）：
+`.vscode/mcp.json`（專案）：
 
 ```json
 {
@@ -144,11 +114,11 @@ uv sync
 }
 ```
 
-> 注意：VS Code MCP 只在 **GitHub Copilot Agent mode** 下有效，Ask / Edit mode 看不到 tools。
+> MCP 只在 **Agent mode** 下有效，Ask / Edit mode 不支援。
 
 #### OpenAI Codex CLI
 
-編輯 `~/.codex/config.toml`（全域）或 `.codex/config.toml`（專案）：
+`~/.codex/config.toml`（全域）或 `.codex/config.toml`（專案）：
 
 ```toml
 [mcp_servers.memory]
@@ -163,90 +133,82 @@ MCP_TRANSPORT = "stdio"
 
 ---
 
-## 情境 B：Remote（HTTP）
+### 情境 B：遠端（HTTP）
 
-需要將 server 暴露到網路上，讓遠端 AI 工具連線。
+將 server 暴露到網路，供 Claude Chat 或其他遠端工具連線。
 
-### 1. 建立 `.env`
+**步驟：**
 
 ```bash
+# 1. 建立 .env
 cp .env.example .env
-# 編輯 .env，設定 MCP_API_KEY（自訂一組 secret）
-```
+# 填入 MCP_API_KEY（自訂 secret）
 
-### 2. 啟動服務
-
-```bash
+# 2. 啟動所有服務
 docker compose up -d
+# Qdrant + memory-server 同時啟動，port 8000
 ```
 
-Qdrant + memory-server 都會啟動，memory-server 監聽 port `8000`。
+**開放遠端存取（擇一）：**
 
-### 3. 開放遠端存取（擇一）
-
-**Cloudflare Tunnel（推薦，免費）：**
 ```bash
+# Cloudflare Tunnel（推薦，免費）
 cloudflared tunnel --url http://localhost:8000
-# 會產生一個公開 URL，例如 https://xxx.trycloudflare.com
+
+# 或直接開防火牆 port 8000
 ```
 
-**直接 expose port：** 確保防火牆/路由器開放 port 8000。
+**設定 MCP（填入對應工具的 remote MCP 設定）：**
+- URL：`https://<YOUR_HOST>/mcp`
+- Header：`Authorization: Bearer <YOUR_MCP_API_KEY>`
 
-### 4. 設定 MCP
+---
 
-在各工具的 MCP 設定填入：
-- **URL：** `https://<YOUR_HOST>/mcp`
-- **Header：** `Authorization: Bearer <YOUR_MCP_API_KEY>`
+## MCP Tools
+
+| Tool | 參數 | 說明 |
+|---|---|---|
+| `save_memory` | `content, type, tags[]` | 儲存記憶 |
+| `search_memories` | `query, type?, limit?` | 語意搜尋 |
+| `get_memory` | `memory_id` | 用 ID 取得單筆 |
+| `update_memory` | `memory_id, content` | 更新內容（自動重新 embed） |
+| `delete_memory` | `memory_id` | 刪除 |
+| `list_memory_types` | — | 列出目前有哪些 type |
+
+**Memory types：** `user` / `feedback` / `project` / `reference` / `general`
 
 ---
 
 ## 讓 AI 主動使用 Memory
 
-MCP server 只提供工具，**AI 不會自動存取記憶**，除非有明確指示。
+MCP server 只提供工具，**AI 不會自動存取記憶**，需要透過 instruction 告知。
 
-### 方法 A：手動觸發（隨時可用）
-
-在對話中直接要求：
-```
-請把剛才這件事存到 memory
-幫我搜尋 memory 裡關於 X 的內容
-列出所有 memory types
-```
-
-### 方法 B：透過 instruction 檔自動觸發（推薦）
-
-各工具有各自的 instruction 檔，將以下內容加入對應檔案，AI 就會自動在適當時機存取記憶：
+### 加入以下指令到對應工具的 instruction 檔
 
 ```markdown
-## Memory
-
 你有 memory MCP server 可用，請主動使用：
 - 對話開始時，用 search_memories 查詢與當前任務相關的背景記憶
 - 學到關於使用者偏好、專案決策、重要 feedback 時，主動呼叫 save_memory
 - 記憶類型：user（使用者資訊）、feedback（偏好與糾正）、project（專案脈絡）、reference（外部資源）、general（其他）
 ```
 
-| 工具 | Instruction 檔位置 | 範圍 |
+### Instruction 檔位置
+
+| 工具 | 檔案 | 範圍 |
 |---|---|---|
 | Claude Code | `~/.claude/CLAUDE.md` | 全域 |
 | Claude Code | `CLAUDE.md`（專案根目錄） | 專案 |
-| Claude Chat（claude.ai） | Projects → System prompt | 全域 |
+| Claude Chat | Projects → System prompt | 全域 |
 | Cursor | `~/.cursor/rules/memory.md` | 全域 |
 | Cursor | `.cursor/rules/memory.md` | 專案 |
 | VS Code Copilot | `.github/copilot-instructions.md` | 專案 |
 | OpenAI Codex CLI | `~/.codex/instructions.md` | 全域 |
 | OpenAI Codex CLI | `AGENTS.md`（專案根目錄） | 專案 |
 
-### 確認記憶有存進去
+### 確認記憶有沒有存進去
 
-**Qdrant dashboard：**
-開啟 `http://localhost:6333/dashboard`，點選 `memories` collection 查看所有資料。
-
-**直接問 AI：**
-```
-請用 search_memories 搜尋所有記憶
-請用 list_memory_types 看目前有哪些類型
-```
+- **Qdrant dashboard：** `http://localhost:6333/dashboard` → `memories` collection
+- **直接問 AI：** 「請用 `list_memory_types` 看目前有哪些記憶類型」
 
 ---
 
@@ -255,8 +217,8 @@ MCP server 只提供工具，**AI 不會自動存取記憶**，除非有明確�
 | 變數 | 預設值 | 說明 |
 |---|---|---|
 | `QDRANT_URL` | `http://localhost:6333` | Qdrant 連線位址 |
-| `MCP_TRANSPORT` | `stdio` | `stdio`（local）或 `http`（遠端） |
-| `MCP_API_KEY` | —（無驗證）| HTTP mode 的驗證 key |
+| `MCP_TRANSPORT` | `stdio` | `stdio`（本機）或 `http`（遠端） |
+| `MCP_API_KEY` | —（無驗證）| HTTP mode 驗證 key |
 | `HOST` | `0.0.0.0` | HTTP mode 監聽 host |
 | `PORT` | `8000` | HTTP mode 監聽 port |
 
@@ -264,46 +226,39 @@ MCP server 只提供工具，**AI 不會自動存取記憶**，除非有明確�
 
 ## 環境轉移
 
-### 備份 / 還原資料
-
 ```bash
-# 備份（在 memory-server/ 根目錄執行）
+# 備份（在 memory-server/ 根目錄）
 tar -czf memory-backup-$(date +%Y%m%d).tar.gz data/qdrant/
 
 # 還原
 tar -xzf memory-backup-YYYYMMDD.tar.gz
 ```
 
-### 搬到新機器
+**搬到新機器：**
 
 ```bash
-# 舊機器：備份後傳輸（scp / rsync / 隨身碟）
+# 舊機器
 tar -czf memory-backup.tar.gz data/qdrant/
 
 # 新機器
-git clone <this-repo>
-cd memory-server
+git clone <this-repo> && cd memory-server
 tar -xzf memory-backup.tar.gz
 docker compose up qdrant -d
 cd mcp-server && uv sync
 ```
 
-fastembed 模型（`~/.cache/fastembed`）可選擇一起搬，省去重新下載。
+> fastembed 模型（`~/.cache/fastembed`）可一起搬，省去重新下載。
 
 ---
 
 ## Maintenance
 
-### 更新 Python 套件
+### 更新套件
 
 ```bash
 cd mcp-server
-
-# 查看有新版的套件
-uv tree --outdated
-
-# 升級全部並更新 uv.lock
-uv sync --upgrade
+uv tree --outdated      # 查看有新版的套件
+uv sync --upgrade       # 升級全部並更新 uv.lock
 ```
 
 升級後跑一次快速測試：
@@ -320,19 +275,14 @@ print('OK')
 
 ### 更新 Python 版本
 
-1. `mcp-server/pyproject.toml`：修改 `requires-python`
-2. `mcp-server/Dockerfile`：修改 `FROM python:3.x-slim`
-3. 重建：
-   ```bash
-   cd mcp-server && uv sync
-   docker compose build memory-server
-   ```
+1. `mcp-server/pyproject.toml` → 修改 `requires-python`
+2. `mcp-server/Dockerfile` → 修改 `FROM python:3.x-slim`
+3. 重建：`uv sync && docker compose build memory-server`
 
 ### 更新 Qdrant image
 
 ```bash
-# 備份再升級
-tar -czf memory-backup-$(date +%Y%m%d).tar.gz data/qdrant/
+tar -czf memory-backup-$(date +%Y%m%d).tar.gz data/qdrant/  # 先備份
 docker compose pull qdrant
 docker compose up qdrant -d
 ```
@@ -340,9 +290,6 @@ docker compose up qdrant -d
 ### 更新 uv
 
 ```bash
-# macOS / WSL（brew）
-brew upgrade uv
-
-# Windows 原生
-uv self update
+brew upgrade uv      # macOS / WSL
+uv self update       # Windows 原生
 ```
