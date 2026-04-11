@@ -77,10 +77,10 @@ Claude Code ─────┘                                      │
 
 ### Phase 2 — 遠端服務（Chat + Cowork）
 
-- [ ] 加 HTTP/SSE transport
-- [ ] 加 API Key 驗證 middleware
-- [ ] 設定 Claude Chat / Cowork 的 MCP config
-- [ ] 用 Cloudflare Tunnel 或 expose port 開放遠端存取
+- [x] 加 HTTP Streamable transport（`MCP_TRANSPORT=http` 切換）
+- [x] 加 API Key 驗證 middleware（`MCP_API_KEY` 環境變數）
+- [x] 設定 Claude Chat / Cowork 的 MCP config（`claude_mcp_config.json`）
+- [ ] 用 Cloudflare Tunnel 或 expose port 開放遠端存取（依部署環境決定）
 
 ---
 

@@ -158,6 +158,38 @@ fastembed 模型 cache 路徑：`~/.cache/fastembed`
 
 ---
 
-## Phase 2：遠端存取（開發中）
+## Phase 2：遠端存取（Claude Chat / Cowork）
 
-Claude Chat / Cowork 需要 HTTP/SSE transport。完成後設定方式會補充在這裡。
+### 1. 建立 `.env`
+
+```bash
+cp .env.example .env
+# 編輯 .env，填入 MCP_API_KEY
+```
+
+### 2. 啟動完整服務
+
+```bash
+docker compose up -d
+```
+
+memory-server 會在 port 8000 以 HTTP Streamable transport 跑起來。
+
+### 3. 開放遠端存取
+
+選一種方式：
+
+**Cloudflare Tunnel（推薦，免費）：**
+```bash
+cloudflared tunnel --url http://localhost:8000
+```
+
+**直接 expose port：** 確保防火牆開放 8000，或掛在 reverse proxy 後面。
+
+### 4. 設定 Claude Chat / Cowork
+
+在 MCP 設定介面填入：
+- URL：`http://<YOUR_HOST>:8000/mcp`
+- Header：`Authorization: Bearer <YOUR_MCP_API_KEY>`
+
+參考 `claude_mcp_config.json` 的 `claude_chat_or_cowork_remote` 區塊。

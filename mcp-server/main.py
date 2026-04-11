@@ -1,11 +1,17 @@
+import os
+
 from fastmcp import FastMCP
+from starlette.middleware import Middleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
 from typing import Annotated
 from pydantic import Field
 
 import db
 from models import Memory, MemoryType
 
-db.init_db()  # 建立 Qdrant collection（若不存在）
+db.init_db()
 
 mcp = FastMCP(
     name="memory-server",
@@ -17,6 +23,8 @@ mcp = FastMCP(
     ),
 )
 
+
+# --- Tools ---
 
 @mcp.tool()
 def save_memory(
@@ -31,11 +39,11 @@ def save_memory(
 
 @mcp.tool()
 def search_memories(
-    query: Annotated[str, Field(description="Search query — matches content and tags")],
+    query: Annotated[str, Field(description="Search query — semantic match against content")],
     type: Annotated[MemoryType | None, Field(description="Filter by memory type (optional)")] = None,
     limit: Annotated[int, Field(description="Max results to return", ge=1, le=100)] = 20,
 ) -> list[dict]:
-    """Search memories by content or tags."""
+    """Search memories semantically."""
     memories = db.search_memories(query, type, limit)
     return [_memory_to_dict(m) for m in memories]
 
@@ -54,7 +62,7 @@ def update_memory(
     memory_id: Annotated[str, Field(description="The memory UUID to update")],
     content: Annotated[str, Field(description="New content to replace the existing memory")],
 ) -> dict | None:
-    """Update the content of an existing memory."""
+    """Update the content of an existing memory (re-embeds automatically)."""
     memory = db.update_memory(memory_id, content)
     return _memory_to_dict(memory) if memory else None
 
@@ -85,5 +93,38 @@ def _memory_to_dict(m: Memory) -> dict:
     }
 
 
+# --- Auth middleware ---
+
+class APIKeyMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app, api_key: str):
+        super().__init__(app)
+        self.api_key = api_key
+
+    async def dispatch(self, request: Request, call_next):
+        if request.headers.get("Authorization") != f"Bearer {self.api_key}":
+            return Response("Unauthorized", status_code=401)
+        return await call_next(request)
+
+
+# --- Entrypoint ---
+
 if __name__ == "__main__":
-    mcp.run()
+    transport = os.getenv("MCP_TRANSPORT", "stdio")
+
+    if transport == "http":
+        api_key = os.getenv("MCP_API_KEY", "")
+        host = os.getenv("HOST", "0.0.0.0")
+        port = int(os.getenv("PORT", "8000"))
+
+        middleware = []
+        if api_key:
+            middleware.append(Middleware(APIKeyMiddleware, api_key=api_key))
+
+        mcp.run(
+            transport="streamable-http",
+            host=host,
+            port=port,
+            middleware=middleware,
+        )
+    else:
+        mcp.run()

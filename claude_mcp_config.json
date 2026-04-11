@@ -1,39 +1,48 @@
 {
-  "_readme": "將對應平台的 mcpServers 區塊複製到 ~/.claude/claude_desktop_config.json（或用 `claude mcp add` 指令）",
+  "_readme": "將對應平台/模式的 mcpServers 區塊複製到 ~/.claude/claude_desktop_config.json",
 
-  "windows_wsl": {
-    "_note": "Claude Code 在 WSL 內執行，路徑使用 Linux 格式",
+  "claude_code_windows_wsl": {
+    "_note": "本機 stdio mode，Claude Code 在 WSL 內執行。需先 docker compose up qdrant -d",
     "mcpServers": {
       "memory": {
         "command": "uv",
         "args": [
           "--directory",
           "/home/workspace-linux/_project/personal/memory-server/mcp-server",
-          "run",
-          "python",
-          "main.py"
+          "run", "python", "main.py"
         ],
         "env": {
-          "QDRANT_URL": "http://localhost:6333"
+          "QDRANT_URL": "http://localhost:6333",
+          "MCP_TRANSPORT": "stdio"
         }
       }
     }
   },
 
-  "macos": {
-    "_note": "將 <PROJECT_ROOT> 換成實際的 clone 路徑",
+  "claude_code_macos": {
+    "_note": "本機 stdio mode。將 <PROJECT_ROOT> 換成實際 clone 路徑",
     "mcpServers": {
       "memory": {
         "command": "uv",
         "args": [
-          "--directory",
-          "<PROJECT_ROOT>/mcp-server",
-          "run",
-          "python",
-          "main.py"
+          "--directory", "<PROJECT_ROOT>/mcp-server",
+          "run", "python", "main.py"
         ],
         "env": {
-          "QDRANT_URL": "http://localhost:6333"
+          "QDRANT_URL": "http://localhost:6333",
+          "MCP_TRANSPORT": "stdio"
+        }
+      }
+    }
+  },
+
+  "claude_chat_or_cowork_remote": {
+    "_note": "HTTP mode，透過遠端 URL 連線。需先 docker compose up -d 並設好 MCP_API_KEY",
+    "mcpServers": {
+      "memory": {
+        "url": "http://<YOUR_HOST>:8000/mcp",
+        "headers": {
+          "Authorization": "Bearer <YOUR_MCP_API_KEY>"
         }
       }
     }

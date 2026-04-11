@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(///wsl.localhost/Ubuntu/home/workspace-linux/_project/personal/memory-server/**)",
+      "Read(///wsl.localhost/Ubuntu/home/workspace-linux/_project/personal/**)",
+      "Bash(docker compose:*)",
+      "Bash(uv sync:*)",
+      "Bash(curl -s http://localhost:6333/healthz)",
+      "Bash(QDRANT_URL=http://localhost:6333 uv run python main.py)",
+      "Bash(printf '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"clientInfo\":{\"name\":\"test\",\"version\":\"0\"}}}\\\\n{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\",\"params\":{}}\\\\n')",
+      "Bash(QDRANT_URL=http://localhost:6333 timeout 15 uv run python main.py)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(curl -s -X DELETE http://localhost:6333/collections/memories)",
+      "Bash(uv run python -c ':*)",
+      "Bash(MCP_TRANSPORT=http MCP_API_KEY=test-key QDRANT_URL=http://localhost:6333 PORT=8000 uv run python main.py)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8000/mcp)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" -H \"Authorization: Bearer wrong\" http://localhost:8000/mcp)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" -H \"Authorization: Bearer test-key\" http://localhost:8000/mcp)",
+      "Bash(MCP_TRANSPORT=http MCP_API_KEY=test-key QDRANT_URL=http://localhost:6333 PORT=8000 timeout 8 uv run python main.py)"
+    ]
+  }
+}
