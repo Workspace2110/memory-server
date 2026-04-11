@@ -38,11 +38,10 @@ memory-server/
 
 ### 前置需求
 
-- Python 3.12+
 - [uv](https://docs.astral.sh/uv/)
-- Docker + Docker Compose
+- Docker + Docker Compose（兩個平台都需要，Qdrant 跑在 Docker 裡）
 
-### 1. 啟動 Qdrant
+### 1. 啟動 Qdrant（Windows / macOS 都需要）
 
 ```bash
 docker compose up qdrant -d
@@ -57,50 +56,13 @@ cd mcp-server
 uv sync
 ```
 
-### 3. 啟動 MCP Server（stdio mode）
+首次 `uv sync` 會根據 `pyproject.toml` 自動選 Python 版本。
 
-```bash
-uv run python main.py
-```
-
-首次啟動會下載 fastembed 模型（約 130MB），之後會 cache 在 `~/.cache/fastembed`。
-
-### 4. 設定 Claude Code
+### 3. 設定 Claude Code
 
 編輯 `~/.claude/claude_desktop_config.json`，參考 `claude_mcp_config.json` 選對應平台的區塊貼入。
 
-**Windows（WSL）：**
-```json
-{
-  "mcpServers": {
-    "memory": {
-      "command": "uv",
-      "args": [
-        "--directory",
-        "/home/workspace-linux/_project/personal/memory-server/mcp-server",
-        "run", "python", "main.py"
-      ],
-      "env": { "QDRANT_URL": "http://localhost:6333" }
-    }
-  }
-}
-```
-
-**macOS：**（將 `<PROJECT_ROOT>` 換成實際路徑）
-```json
-{
-  "mcpServers": {
-    "memory": {
-      "command": "uv",
-      "args": [
-        "--directory", "<PROJECT_ROOT>/mcp-server",
-        "run", "python", "main.py"
-      ],
-      "env": { "QDRANT_URL": "http://localhost:6333" }
-    }
-  }
-}
-```
+首次 Claude Code 啟動 MCP server 時會下載 fastembed 模型（約 130MB），之後 cache 在 `~/.cache/fastembed`。
 
 ---
 
@@ -155,6 +117,75 @@ fastembed 模型 cache 路徑：`~/.cache/fastembed`
 | 變數 | 預設值 | 說明 |
 |---|---|---|
 | `QDRANT_URL` | `http://localhost:6333` | Qdrant 連線位址 |
+| `MCP_TRANSPORT` | `stdio` | `stdio`（Claude Code）或 `http`（遠端） |
+| `MCP_API_KEY` | —（無驗證）| HTTP mode 的 API key |
+| `HOST` | `0.0.0.0` | HTTP mode 的監聽 host |
+| `PORT` | `8000` | HTTP mode 的監聽 port |
+
+---
+
+## Maintenance
+
+### 更新 Python 套件
+
+```bash
+cd mcp-server
+
+# 檢查哪些套件有新版
+uv tree --outdated
+
+# 升級全部套件並更新 uv.lock
+uv sync --upgrade
+
+# 只升級特定套件
+uv add "fastmcp>=x.y.z"
+```
+
+升級後務必跑一次功能測試確認正常：
+
+```bash
+QDRANT_URL=http://localhost:6333 uv run python -c "
+import db; db.init_db()
+m = db.save_memory('test', 'general', [])
+assert db.get_memory(m.id)
+db.delete_memory(m.id)
+print('OK')
+"
+```
+
+### 更新 Python 版本
+
+1. 修改 `mcp-server/pyproject.toml`：
+   ```toml
+   requires-python = ">=3.13"  # 改成目標版本
+   ```
+2. 修改 `mcp-server/Dockerfile`：
+   ```dockerfile
+   FROM python:3.13-slim  # 對應版本
+   ```
+3. 重新 sync 並重建 Docker image：
+   ```bash
+   cd mcp-server && uv sync
+   docker compose build memory-server
+   ```
+
+### 更新 Qdrant Docker image
+
+```bash
+# 拉最新 image
+docker compose pull qdrant
+
+# 重啟（資料不受影響，存在 ./data/qdrant/）
+docker compose up qdrant -d
+```
+
+> 升級前建議先備份：`tar -czf memory-backup-$(date +%Y%m%d).tar.gz data/qdrant/`
+
+### 更新 uv 本身
+
+```bash
+uv self update
+```
 
 ---
 

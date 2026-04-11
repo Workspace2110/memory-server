@@ -2,13 +2,13 @@
   "_readme": "將對應平台/模式的 mcpServers 區塊複製到 ~/.claude/claude_desktop_config.json",
 
   "claude_code_windows_wsl": {
-    "_note": "本機 stdio mode，Claude Code 在 WSL 內執行。需先 docker compose up qdrant -d",
+    "_note": "本機 stdio mode。將 <PROJECT_ROOT> 換成實際 clone 路徑",
     "mcpServers": {
       "memory": {
         "command": "uv",
         "args": [
           "--directory",
-          "/home/workspace-linux/_project/personal/memory-server/mcp-server",
+          "<PROJECT_ROOT>/mcp-server",
           "run", "python", "main.py"
         ],
         "env": {
