@@ -12,7 +12,7 @@ Remote agent ─── HTTP + API key ─┼──► FastMCP Server ──► Q
 Remote agent ─── HTTP + API key ─┘
 ```
 
-- **Embedding：** `BAAI/bge-small-en-v1.5`（via fastembed，首次啟動自動下載 ~130MB，cache 在 `~/.cache/fastembed`）
+- **Embedding：** `BAAI/bge-large-en-v1.5`（1024 維，via fastembed，首次啟動自動下載 ~550MB，cache 在 `~/.cache/fastembed`）
 - **Storage：** Qdrant（Docker，資料存在 `./data/qdrant/`，git ignored）
 
 ---

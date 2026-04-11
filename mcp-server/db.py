@@ -8,8 +8,8 @@ from models import Memory, MemoryType
 
 QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
 COLLECTION = "memories"
-EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
-VECTOR_SIZE = 384
+EMBEDDING_MODEL = "BAAI/bge-large-en-v1.5"
+VECTOR_SIZE = 1024
 
 client = QdrantClient(url=QDRANT_URL)
 
