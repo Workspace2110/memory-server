@@ -114,6 +114,66 @@ uv sync
 
 ---
 
+## 其他 AI 工具（本機 stdio）
+
+所有工具都需要先啟動 Qdrant：
+
+```bash
+docker compose up qdrant -d
+```
+
+### Cursor
+
+編輯 `~/.cursor/mcp.json`（全域）或 `.cursor/mcp.json`（專案）：
+
+```json
+{
+  "mcpServers": {
+    "memory": {
+      "command": "uv",
+      "args": ["--directory", "<PROJECT_ROOT>/mcp-server", "run", "python", "main.py"],
+      "env": { "QDRANT_URL": "http://localhost:6333", "MCP_TRANSPORT": "stdio" }
+    }
+  }
+}
+```
+
+### VS Code（GitHub Copilot Agent mode）
+
+編輯 `.vscode/mcp.json`（專案）：
+
+```json
+{
+  "servers": {
+    "memory": {
+      "type": "stdio",
+      "command": "uv",
+      "args": ["--directory", "<PROJECT_ROOT>/mcp-server", "run", "python", "main.py"],
+      "env": { "QDRANT_URL": "http://localhost:6333", "MCP_TRANSPORT": "stdio" }
+    }
+  }
+}
+```
+
+> 注意：VS Code MCP 只在 **GitHub Copilot Agent mode** 下有效，Ask / Edit mode 看不到 tools。
+
+### OpenAI Codex CLI
+
+編輯 `~/.codex/config.toml`（全域）或 `.codex/config.toml`（專案）：
+
+```toml
+[mcp_servers.memory]
+command = "uv"
+args = ["--directory", "<PROJECT_ROOT>/mcp-server", "run", "python", "main.py"]
+enabled = true
+
+[mcp_servers.memory.env]
+QDRANT_URL = "http://localhost:6333"
+MCP_TRANSPORT = "stdio"
+```
+
+---
+
 ## 情境 B：Claude Chat / Cowork（遠端 HTTP）
 
 需要將 server 暴露到網路上。
