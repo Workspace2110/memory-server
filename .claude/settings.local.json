@@ -16,7 +16,8 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8000/mcp)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" -H \"Authorization: Bearer wrong\" http://localhost:8000/mcp)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" -H \"Authorization: Bearer test-key\" http://localhost:8000/mcp)",
-      "Bash(MCP_TRANSPORT=http MCP_API_KEY=test-key QDRANT_URL=http://localhost:6333 PORT=8000 timeout 8 uv run python main.py)"
+      "Bash(MCP_TRANSPORT=http MCP_API_KEY=test-key QDRANT_URL=http://localhost:6333 PORT=8000 timeout 8 uv run python main.py)",
+      "Bash(rm PLAN.md)"
     ]
   }
 }

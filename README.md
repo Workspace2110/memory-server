@@ -1,16 +1,17 @@
 # MCP Memory Server
 
-跨 Claude 客戶端的持久記憶 MCP Server。支援語意搜尋，讓 Claude Code、Claude Chat、Claude Cowork 共用同一份記憶。
+跨 Claude 客戶端的持久記憶 MCP Server。讓 Claude Code、Claude Chat、Claude Cowork 共用同一份記憶，支援語意搜尋。
 
 ## 架構
 
 ```
-Claude Code ─────┐
-Claude Chat ─────┼──► stdio / HTTP+SSE ──► FastMCP Server ──► Qdrant
-Claude Cowork ───┘                                           (向量搜尋)
+Claude Code ────── stdio ──────┐
+Claude Chat ─── HTTP + API key ─┼──► FastMCP Server ──► Qdrant
+Claude Cowork ── HTTP + API key ┘                    (語意向量搜尋)
 ```
 
-**Embedding model：** `BAAI/bge-small-en-v1.5`（via fastembed，首次啟動自動下載 ~130MB）
+- **Embedding：** `BAAI/bge-small-en-v1.5`（fastembed，首次啟動自動下載 ~130MB）
+- **Storage：** Qdrant（Docker 容器，資料存在 `./data/qdrant/`）
 
 ---
 
@@ -19,35 +20,56 @@ Claude Cowork ───┘                                           (向量搜�
 ```
 memory-server/
 ├── mcp-server/
-│   ├── main.py          # FastMCP entrypoint（6 個 tools）
+│   ├── main.py          # FastMCP server（6 個 tools，支援 stdio / HTTP）
 │   ├── db.py            # Qdrant CRUD + 語意搜尋
-│   ├── models.py        # Pydantic Memory model
+│   ├── models.py        # Memory model
 │   ├── pyproject.toml
 │   └── Dockerfile
 ├── data/
-│   └── qdrant/          # Qdrant 資料 volume（git ignored）
+│   └── qdrant/          # Qdrant 資料（git ignored）
+├── .env.example
 ├── docker-compose.yml
-├── claude_mcp_config.json
-├── PLAN.md
+├── claude_mcp_config.json   # 各平台 MCP 設定範例
 └── README.md
 ```
 
 ---
 
-## 快速 Setup
+## MCP Tools
 
-### 前置需求
+Claude 透過以下工具操作記憶：
 
-- [uv](https://docs.astral.sh/uv/)（macOS / WSL：`brew install uv`）
-- Docker + Docker Compose（兩個平台都需要，Qdrant 跑在 Docker 裡）
+| Tool | 參數 | 說明 |
+|---|---|---|
+| `save_memory` | `content, type, tags[]` | 儲存一筆記憶 |
+| `search_memories` | `query, type?, limit?` | 語意搜尋（自動 embed query） |
+| `get_memory` | `memory_id` | 用 ID 取得單筆 |
+| `update_memory` | `memory_id, content` | 更新內容（自動重新 embed） |
+| `delete_memory` | `memory_id` | 刪除 |
+| `list_memory_types` | — | 列出目前使用中的 type |
 
-### 1. 啟動 Qdrant（Windows / macOS 都需要）
+**Memory types：** `user` / `feedback` / `project` / `reference` / `general`
+
+---
+
+## 前置需求
+
+| 工具 | macOS / WSL | Windows 原生 |
+|---|---|---|
+| uv | `brew install uv` | [官網安裝](https://docs.astral.sh/uv/) |
+| Docker Desktop | [官網下載](https://www.docker.com/products/docker-desktop/) | 同左 |
+
+---
+
+## 情境 A：Claude Code（本機 stdio）
+
+Claude Code 直接透過 stdio 啟動 MCP server，**不需要** memory-server 跑在 Docker 裡，但 **Qdrant 需要跑著**。
+
+### 1. 啟動 Qdrant
 
 ```bash
 docker compose up qdrant -d
 ```
-
-Qdrant dashboard：http://localhost:6333/dashboard
 
 ### 2. 安裝依賴
 
@@ -56,39 +78,84 @@ cd mcp-server
 uv sync
 ```
 
-首次 `uv sync` 會根據 `pyproject.toml` 自動選 Python 版本。
+### 3. 設定 Claude Code MCP
 
-### 3. 設定 Claude Code
+開啟 `claude_mcp_config.json`，複製對應平台的設定貼入 `~/.claude/claude_desktop_config.json`：
 
-編輯 `~/.claude/claude_desktop_config.json`，參考 `claude_mcp_config.json` 選對應平台的區塊貼入。
+**Windows WSL：**
+```json
+{
+  "mcpServers": {
+    "memory": {
+      "command": "uv",
+      "args": ["--directory", "<PROJECT_ROOT>/mcp-server", "run", "python", "main.py"],
+      "env": { "QDRANT_URL": "http://localhost:6333", "MCP_TRANSPORT": "stdio" }
+    }
+  }
+}
+```
 
-首次 Claude Code 啟動 MCP server 時會下載 fastembed 模型（約 130MB），之後 cache 在 `~/.cache/fastembed`。
+**macOS：** 同上，`<PROJECT_ROOT>` 換成實際路徑。
+
+Claude Code 重新啟動後即可使用。首次會下載 fastembed 模型（~130MB），之後 cache 在 `~/.cache/fastembed`。
 
 ---
 
-## MCP Tools
+## 情境 B：Claude Chat / Cowork（遠端 HTTP）
 
-| Tool | 說明 |
-|---|---|
-| `save_memory` | 儲存一筆記憶（content, type, tags） |
-| `search_memories` | 語意搜尋（可篩選 type） |
-| `get_memory` | 用 ID 取得單筆記憶 |
-| `update_memory` | 更新記憶內容（會重新 embed） |
-| `delete_memory` | 刪除記憶 |
-| `list_memory_types` | 列出目前使用中的 type |
+需要將 server 暴露到網路上。
 
-**Memory types：** `user` / `feedback` / `project` / `reference` / `general`
+### 1. 建立 `.env`
+
+```bash
+cp .env.example .env
+# 編輯 .env，設定 MCP_API_KEY（自訂一組 secret）
+```
+
+### 2. 啟動服務
+
+```bash
+docker compose up -d
+```
+
+Qdrant + memory-server 都會啟動，memory-server 監聽 port `8000`。
+
+### 3. 開放遠端存取（擇一）
+
+**Cloudflare Tunnel（推薦，免費）：**
+```bash
+cloudflared tunnel --url http://localhost:8000
+# 會產生一個公開 URL，例如 https://xxx.trycloudflare.com
+```
+
+**直接 expose port：** 確保防火牆/路由器開放 port 8000。
+
+### 4. 設定 Claude Chat / Cowork
+
+在 MCP 設定介面填入：
+- **URL：** `https://<YOUR_HOST>/mcp`
+- **Header：** `Authorization: Bearer <YOUR_MCP_API_KEY>`
+
+---
+
+## 環境變數
+
+| 變數 | 預設值 | 說明 |
+|---|---|---|
+| `QDRANT_URL` | `http://localhost:6333` | Qdrant 連線位址 |
+| `MCP_TRANSPORT` | `stdio` | `stdio`（Claude Code）或 `http`（遠端） |
+| `MCP_API_KEY` | —（無驗證）| HTTP mode 的驗證 key |
+| `HOST` | `0.0.0.0` | HTTP mode 監聽 host |
+| `PORT` | `8000` | HTTP mode 監聽 port |
 
 ---
 
 ## 環境轉移
 
-### 備份資料
-
-Qdrant 資料全在 `./data/qdrant/`，直接打包即可：
+### 備份 / 還原資料
 
 ```bash
-# 備份
+# 備份（在 memory-server/ 根目錄執行）
 tar -czf memory-backup-$(date +%Y%m%d).tar.gz data/qdrant/
 
 # 還原
@@ -98,29 +165,18 @@ tar -xzf memory-backup-YYYYMMDD.tar.gz
 ### 搬到新機器
 
 ```bash
-# 舊機器
+# 舊機器：備份後傳輸（scp / rsync / 隨身碟）
 tar -czf memory-backup.tar.gz data/qdrant/
-# 傳到新機器（scp / rsync / 隨身碟皆可）
 
 # 新機器
 git clone <this-repo>
-tar -xzf memory-backup.tar.gz   # 解壓到 data/qdrant/
+cd memory-server
+tar -xzf memory-backup.tar.gz
 docker compose up qdrant -d
 cd mcp-server && uv sync
 ```
 
-fastembed 模型 cache 路徑：`~/.cache/fastembed`
-（可選擇一起備份，省去重新下載時間）
-
-### 環境變數
-
-| 變數 | 預設值 | 說明 |
-|---|---|---|
-| `QDRANT_URL` | `http://localhost:6333` | Qdrant 連線位址 |
-| `MCP_TRANSPORT` | `stdio` | `stdio`（Claude Code）或 `http`（遠端） |
-| `MCP_API_KEY` | —（無驗證）| HTTP mode 的 API key |
-| `HOST` | `0.0.0.0` | HTTP mode 的監聽 host |
-| `PORT` | `8000` | HTTP mode 的監聽 port |
+fastembed 模型（`~/.cache/fastembed`）可選擇一起搬，省去重新下載。
 
 ---
 
@@ -131,17 +187,14 @@ fastembed 模型 cache 路徑：`~/.cache/fastembed`
 ```bash
 cd mcp-server
 
-# 檢查哪些套件有新版
+# 查看有新版的套件
 uv tree --outdated
 
-# 升級全部套件並更新 uv.lock
+# 升級全部並更新 uv.lock
 uv sync --upgrade
-
-# 只升級特定套件
-uv add "fastmcp>=x.y.z"
 ```
 
-升級後務必跑一次功能測試確認正常：
+升級後跑一次快速測試：
 
 ```bash
 QDRANT_URL=http://localhost:6333 uv run python -c "
@@ -155,76 +208,29 @@ print('OK')
 
 ### 更新 Python 版本
 
-1. 修改 `mcp-server/pyproject.toml`：
-   ```toml
-   requires-python = ">=3.13"  # 改成目標版本
-   ```
-2. 修改 `mcp-server/Dockerfile`：
-   ```dockerfile
-   FROM python:3.13-slim  # 對應版本
-   ```
-3. 重新 sync 並重建 Docker image：
+1. `mcp-server/pyproject.toml`：修改 `requires-python`
+2. `mcp-server/Dockerfile`：修改 `FROM python:3.x-slim`
+3. 重建：
    ```bash
    cd mcp-server && uv sync
    docker compose build memory-server
    ```
 
-### 更新 Qdrant Docker image
+### 更新 Qdrant image
 
 ```bash
-# 拉最新 image
+# 備份再升級
+tar -czf memory-backup-$(date +%Y%m%d).tar.gz data/qdrant/
 docker compose pull qdrant
-
-# 重啟（資料不受影響，存在 ./data/qdrant/）
 docker compose up qdrant -d
 ```
 
-> 升級前建議先備份：`tar -czf memory-backup-$(date +%Y%m%d).tar.gz data/qdrant/`
-
-### 更新 uv 本身
+### 更新 uv
 
 ```bash
-# macOS 和 WSL（brew 安裝）
+# macOS / WSL（brew）
 brew upgrade uv
 
-# Windows 原生（非 WSL）
+# Windows 原生
 uv self update
 ```
-
----
-
-## Phase 2：遠端存取（Claude Chat / Cowork）
-
-### 1. 建立 `.env`
-
-```bash
-cp .env.example .env
-# 編輯 .env，填入 MCP_API_KEY
-```
-
-### 2. 啟動完整服務
-
-```bash
-docker compose up -d
-```
-
-memory-server 會在 port 8000 以 HTTP Streamable transport 跑起來。
-
-### 3. 開放遠端存取
-
-選一種方式：
-
-**Cloudflare Tunnel（推薦，免費）：**
-```bash
-cloudflared tunnel --url http://localhost:8000
-```
-
-**直接 expose port：** 確保防火牆開放 8000，或掛在 reverse proxy 後面。
-
-### 4. 設定 Claude Chat / Cowork
-
-在 MCP 設定介面填入：
-- URL：`http://<YOUR_HOST>:8000/mcp`
-- Header：`Authorization: Bearer <YOUR_MCP_API_KEY>`
-
-參考 `claude_mcp_config.json` 的 `claude_chat_or_cowork_remote` 區塊。
