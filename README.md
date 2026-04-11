@@ -211,6 +211,45 @@ cloudflared tunnel --url http://localhost:8000
 
 ---
 
+## 讓 AI 主動使用 Memory
+
+MCP server 只提供工具，**AI 不會自動存取記憶**，除非有明確指示。
+
+### 方法 A：手動叫它記（隨時可用）
+
+在對話中直接要求：
+```
+請把剛才這件事存到 memory
+幫我搜尋 memory 裡關於 X 的內容
+列出所有 memory
+```
+
+### 方法 B：CLAUDE.md 自動化（推薦）
+
+在專案根目錄建立 `CLAUDE.md`，加入以下指令讓 Claude 自動觸發：
+
+```markdown
+## Memory
+
+你有 memory MCP server 可用，請主動使用：
+- 對話開始時，用 search_memories 查詢與當前任務相關的背景記憶
+- 學到關於使用者偏好、專案決策、重要 feedback 時，主動呼叫 save_memory
+- 記憶類型：user（使用者資訊）、feedback（偏好與糾正）、project（專案脈絡）、reference（外部資源）、general（其他）
+```
+
+### 確認記憶有存進去
+
+**方法 1：Qdrant dashboard**
+開啟 `http://localhost:6333/dashboard`，點選 `memories` collection 查看所有資料。
+
+**方法 2：直接問 AI**
+```
+請用 search_memories 搜尋所有記憶
+請用 list_memory_types 看目前有哪些類型
+```
+
+---
+
 ## 環境變數
 
 | 變數 | 預設值 | 說明 |
