@@ -7,7 +7,7 @@
 ## 架構
 
 ```
-Local agent  ────── stdio ──────┐
+Local agent  ────── stdio ───────┐
 Remote agent ─── HTTP + API key ─┼──► FastMCP Server ──► Qdrant (語意向量搜尋)
 Remote agent ─── HTTP + API key ─┘
 ```
