@@ -80,11 +80,26 @@ uv sync
 
 ### 3. 設定 Claude Code MCP
 
-開啟 `claude_mcp_config.json`，複製對應平台的設定貼入 `~/.claude/claude_desktop_config.json`：
+開啟 Claude Code 設定 → **Edit Config**，在 `mcpServers` 區塊加入 memory server。完整 config 結構如下（`preferences` 內容依個人設定而異）：
 
-**Windows WSL：**
+**Windows native：**
 ```json
 {
+  "preferences": { "...": "..." },
+  "mcpServers": {
+    "memory": {
+      "command": "uv",
+      "args": ["--directory", "D:\\Projects\\tools\\memory-server\\mcp-server", "run", "python", "main.py"],
+      "env": { "QDRANT_URL": "http://localhost:6333", "MCP_TRANSPORT": "stdio" }
+    }
+  }
+}
+```
+
+**WSL / macOS：**（`<PROJECT_ROOT>` 換成實際路徑，使用正斜線）
+```json
+{
+  "preferences": { "...": "..." },
   "mcpServers": {
     "memory": {
       "command": "uv",
@@ -95,9 +110,7 @@ uv sync
 }
 ```
 
-**macOS：** 同上，`<PROJECT_ROOT>` 換成實際路徑。
-
-Claude Code 重新啟動後即可使用。首次會下載 fastembed 模型（~130MB），之後 cache 在 `~/.cache/fastembed`。
+存檔後 Claude Code 自動重載。首次會下載 fastembed 模型（~130MB），之後 cache 在 `~/.cache/fastembed`。
 
 ---
 
