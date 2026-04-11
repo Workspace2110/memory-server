@@ -230,6 +230,7 @@ MCP server 只提供工具，**AI 不會自動存取記憶**，除非有明確�
 |---|---|---|
 | Claude Code | `~/.claude/CLAUDE.md` | 全域 |
 | Claude Code | `CLAUDE.md`（專案根目錄） | 專案 |
+| Claude Chat（claude.ai） | Projects → System prompt | 全域 |
 | Cursor | `~/.cursor/rules/memory.md` | 全域 |
 | Cursor | `.cursor/rules/memory.md` | 專案 |
 | VS Code Copilot | `.github/copilot-instructions.md` | 專案 |
