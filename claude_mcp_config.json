@@ -1,0 +1,41 @@
+{
+  "_readme": "將對應平台的 mcpServers 區塊複製到 ~/.claude/claude_desktop_config.json（或用 `claude mcp add` 指令）",
+
+  "windows_wsl": {
+    "_note": "Claude Code 在 WSL 內執行，路徑使用 Linux 格式",
+    "mcpServers": {
+      "memory": {
+        "command": "uv",
+        "args": [
+          "--directory",
+          "/home/workspace-linux/_project/personal/memory-server/mcp-server",
+          "run",
+          "python",
+          "main.py"
+        ],
+        "env": {
+          "QDRANT_URL": "http://localhost:6333"
+        }
+      }
+    }
+  },
+
+  "macos": {
+    "_note": "將 <PROJECT_ROOT> 換成實際的 clone 路徑",
+    "mcpServers": {
+      "memory": {
+        "command": "uv",
+        "args": [
+          "--directory",
+          "<PROJECT_ROOT>/mcp-server",
+          "run",
+          "python",
+          "main.py"
+        ],
+        "env": {
+          "QDRANT_URL": "http://localhost:6333"
+        }
+      }
+    }
+  }
+}
