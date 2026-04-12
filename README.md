@@ -158,9 +158,79 @@ cloudflared tunnel --url http://localhost:8000
 # 或直接開防火牆 port 8000
 ```
 
-**設定 MCP（填入對應工具的 remote MCP 設定）：**
-- URL：`https://<YOUR_HOST>/mcp`
-- Header：`Authorization: Bearer <YOUR_MCP_API_KEY>`
+**依照使用的工具設定 MCP：**
+
+#### Claude Code（Desktop App）
+
+設定 → **Edit Config**，在 `mcpServers` 加入：
+
+```json
+{
+  "mcpServers": {
+    "memory": {
+      "url": "https://<YOUR_HOST>/mcp",
+      "headers": {
+        "Authorization": "Bearer <YOUR_MCP_API_KEY>"
+      }
+    }
+  }
+}
+```
+
+#### Claude Desktop App（claude.ai）
+
+**Settings → Integrations → Add Integration**，填入：
+
+- **URL：** `https://<YOUR_HOST>/mcp`
+- **Header：** `Authorization: Bearer <YOUR_MCP_API_KEY>`
+
+#### Cursor
+
+`~/.cursor/mcp.json`（全域）或 `.cursor/mcp.json`（專案）：
+
+```json
+{
+  "mcpServers": {
+    "memory": {
+      "url": "https://<YOUR_HOST>/mcp",
+      "headers": {
+        "Authorization": "Bearer <YOUR_MCP_API_KEY>"
+      }
+    }
+  }
+}
+```
+
+#### VS Code（GitHub Copilot Agent mode）
+
+`.vscode/mcp.json`（專案）：
+
+```json
+{
+  "servers": {
+    "memory": {
+      "type": "http",
+      "url": "https://<YOUR_HOST>/mcp",
+      "headers": {
+        "Authorization": "Bearer <YOUR_MCP_API_KEY>"
+      }
+    }
+  }
+}
+```
+
+#### OpenAI Codex CLI
+
+`~/.codex/config.toml`（全域）或 `.codex/config.toml`（專案）：
+
+```toml
+[mcp_servers.memory]
+url = "https://<YOUR_HOST>/mcp"
+enabled = true
+
+[mcp_servers.memory.headers]
+Authorization = "Bearer <YOUR_MCP_API_KEY>"
+```
 
 ---
 
@@ -204,6 +274,12 @@ MCP server 只提供工具，**AI 不會自動存取記憶**，需要透過 inst
 | VS Code Copilot | `.github/copilot-instructions.md` | 專案 |
 | OpenAI Codex CLI | `~/.codex/instructions.md` | 全域 |
 | OpenAI Codex CLI | `AGENTS.md`（專案根目錄） | 專案 |
+
+### 已知限制
+
+CLAUDE.md 的指令會被注入為 context，但 Claude 不保證每次對話開頭都會主動執行 `search_memories`。若發現 Claude 沒有自動查詢記憶，手動提示即可：
+
+> 「請先用 search_memories 查詢相關背景記憶」
 
 ### 確認記憶有沒有存進去
 

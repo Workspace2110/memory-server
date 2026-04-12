@@ -13,11 +13,11 @@ services:
     depends_on:
       - qdrant
     ports:
-      - "8000:8000"
+      - "${PORT:-8000}:${PORT:-8000}"
     environment:
       - QDRANT_URL=http://qdrant:6333
       - MCP_TRANSPORT=http
       - MCP_API_KEY=${MCP_API_KEY}
       - HOST=0.0.0.0
-      - PORT=8000
+      - PORT=${PORT:-8000}
     restart: unless-stopped
