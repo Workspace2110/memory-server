@@ -1,3 +1,5 @@
+import threading
+
 import pytest
 import db
 
@@ -79,3 +81,91 @@ def test_list_memory_types():
 def test_list_memory_types_empty():
     types = db.list_memory_types()
     assert types == []
+
+
+# --- Concurrency tests ---
+
+def test_concurrent_updates_same_memory():
+    """兩個 thread 同時 update 同一筆 memory，最終內容必須是其中一個，不能資料損毀。"""
+    m = db.save_memory("initial content", "general", [])
+    results = []
+    errors = []
+
+    def do_update(content):
+        try:
+            updated = db.update_memory(m.id, content)
+            if updated:
+                results.append(updated.content)
+        except Exception as e:
+            errors.append(e)
+
+    t1 = threading.Thread(target=do_update, args=("content from thread 1",))
+    t2 = threading.Thread(target=do_update, args=("content from thread 2",))
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+
+    assert not errors, f"Exceptions during concurrent update: {errors}"
+    assert len(results) == 2
+
+    final = db.get_memory(m.id)
+    assert final is not None
+    assert final.content in ("content from thread 1", "content from thread 2")
+    db.delete_memory(m.id)
+
+
+def test_concurrent_update_and_delete():
+    """一個 thread update、另一個 thread delete 同一筆 memory，不應出現例外或損毀狀態。"""
+    m = db.save_memory("to be contested", "general", [])
+    errors = []
+
+    def do_update():
+        try:
+            db.update_memory(m.id, "updated by thread")
+        except Exception as e:
+            errors.append(e)
+
+    def do_delete():
+        try:
+            db.delete_memory(m.id)
+        except Exception as e:
+            errors.append(e)
+
+    t1 = threading.Thread(target=do_update)
+    t2 = threading.Thread(target=do_delete)
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+
+    assert not errors, f"Exceptions during concurrent update+delete: {errors}"
+    # 最終狀態：記憶存在或不存在都合法，但不能拋例外
+
+
+def test_concurrent_saves_are_independent():
+    """多個 thread 同時 save 不同 memory，全部應成功且互不影響。"""
+    saved_ids = []
+    errors = []
+    lock = threading.Lock()
+
+    def do_save(i):
+        try:
+            m = db.save_memory(f"concurrent save {i}", "general", [])
+            with lock:
+                saved_ids.append(m.id)
+        except Exception as e:
+            errors.append(e)
+
+    threads = [threading.Thread(target=do_save, args=(i,)) for i in range(10)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert not errors, f"Exceptions during concurrent saves: {errors}"
+    assert len(saved_ids) == 10
+    assert len(set(saved_ids)) == 10  # 所有 ID 都不同
+
+    for mid in saved_ids:
+        db.delete_memory(mid)
