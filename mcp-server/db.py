@@ -12,6 +12,13 @@ COLLECTION = os.getenv("QDRANT_COLLECTION", "memories")
 EMBEDDING_MODEL = "BAAI/bge-large-en-v1.5"
 VECTOR_SIZE = 1024
 
+# Ensure fastembed uses a persistent cache directory, not /tmp.
+# Respect explicit override via env var; otherwise default to ~/.cache/fastembed.
+if "FASTEMBED_CACHE_PATH" not in os.environ:
+    os.environ["FASTEMBED_CACHE_PATH"] = os.path.join(
+        os.path.expanduser("~"), ".cache", "fastembed"
+    )
+
 client = QdrantClient(url=QDRANT_URL)
 
 # Per-ID write locks: prevent concurrent update/delete race conditions on the same memory.
@@ -31,6 +38,26 @@ def _get_write_lock(memory_id: str) -> threading.Lock:
         return _write_locks[memory_id]
 
 
+def _validate_embedding_model() -> None:
+    """Run a test embedding to ensure the model is downloaded and functional.
+
+    This catches the case where the cache was wiped (e.g., /tmp cleared on reboot)
+    and forces a re-download at startup rather than failing on the first real request.
+    """
+    try:
+        client.query_points(
+            collection_name=COLLECTION,
+            query=models.Document(text="startup validation probe", model=EMBEDDING_MODEL),
+            limit=1,
+        )
+    except Exception as e:
+        raise RuntimeError(
+            f"Embedding model validation failed. Model: {EMBEDDING_MODEL}, "
+            f"Cache path: {os.environ.get('FASTEMBED_CACHE_PATH', '(default)')}. "
+            f"Original error: {e}"
+        ) from e
+
+
 def init_db() -> None:
     if not client.collection_exists(COLLECTION):
         client.create_collection(
@@ -40,6 +67,7 @@ def init_db() -> None:
                 distance=models.Distance.COSINE,
             ),
         )
+    _validate_embedding_model()
 
 
 def _now() -> str:

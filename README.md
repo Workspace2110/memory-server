@@ -297,6 +297,21 @@ CLAUDE.md 的指令會被注入為 context，但 Claude 不保證每次對話開
 | `MCP_API_KEY` | —（無驗證）| HTTP mode 驗證 key |
 | `HOST` | `0.0.0.0` | HTTP mode 監聽 host |
 | `PORT` | `8000` | HTTP mode 監聽 port |
+| `FASTEMBED_CACHE_PATH` | `~/.cache/fastembed` | fastembed 模型快取路徑（伺服器啟動時自動設定） |
+
+---
+
+## Troubleshooting
+
+### fastembed 模型快取
+
+伺服器啟動時會自動將 `FASTEMBED_CACHE_PATH` 設為 `~/.cache/fastembed`（除非已手動指定）。
+啟動時會驗證模型可用性，若快取被清除會自動重新下載。
+
+如果啟動失敗並顯示 embedding model validation 錯誤，請確認：
+- 有網路連線（首次下載需 ~550MB）
+- 磁碟空間足夠
+- 快取路徑有寫入權限
 
 ---
 

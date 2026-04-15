@@ -9,6 +9,6 @@ RUN uv sync --frozen --no-dev
 
 COPY . .
 
-ENV DB_PATH=/data/memories.db
+ENV FASTEMBED_CACHE_PATH=/app/.cache/fastembed
 
 CMD ["uv", "run", "python", "main.py"]

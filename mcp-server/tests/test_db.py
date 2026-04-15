@@ -1,3 +1,4 @@
+import os
 import threading
 
 import pytest
@@ -81,6 +82,20 @@ def test_list_memory_types():
 def test_list_memory_types_empty():
     types = db.list_memory_types()
     assert types == []
+
+
+# --- Cache / startup validation tests ---
+
+def test_fastembed_cache_path_is_persistent():
+    """FASTEMBED_CACHE_PATH should be set to a persistent location, not /tmp."""
+    cache_path = os.environ.get("FASTEMBED_CACHE_PATH")
+    assert cache_path is not None, "FASTEMBED_CACHE_PATH should be set by db.py"
+    assert "/tmp" not in cache_path, "Cache path must not use /tmp (cleared on reboot)"
+
+
+def test_init_db_validates_embedding_model():
+    """init_db() should succeed without raising (proves model is functional)."""
+    db.init_db()  # Should not raise
 
 
 # --- Concurrency tests ---

@@ -20,4 +20,9 @@ services:
       - MCP_API_KEY=${MCP_API_KEY}
       - HOST=0.0.0.0
       - PORT=${PORT:-8000}
+    volumes:
+      - fastembed-cache:/app/.cache/fastembed
     restart: unless-stopped
+
+volumes:
+  fastembed-cache:
