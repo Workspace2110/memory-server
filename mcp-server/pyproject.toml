@@ -5,7 +5,7 @@ requires-python = ">=3.12"
 dependencies = [
     "fastmcp>=3.3.1",
     "pydantic>=2.13.4",
-    "qdrant-client[fastembed]>=1.17.1",
+    "qdrant-client[fastembed]>=1.18.0",
 ]
 
 [project.optional-dependencies]
