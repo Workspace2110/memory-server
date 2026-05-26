@@ -2,7 +2,7 @@ services:
   qdrant:
     image: qdrant/qdrant:latest
     volumes:
-      - ./data/qdrant:/qdrant/storage
+      - qdrant-data:/qdrant/storage
     ports:
       - "6333:6333"
     restart: unless-stopped
@@ -26,3 +26,4 @@ services:
 
 volumes:
   fastembed-cache:
+  qdrant-data:
